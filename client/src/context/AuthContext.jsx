@@ -5,9 +5,14 @@ export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
+  try {
     const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
-  });
+    return saved && saved !== "undefined" ? JSON.parse(saved) : null;
+  } catch (error) {
+    console.error("Invalid user in localStorage");
+    return null;
+  }
+});
   const [loading, setLoading] = useState(true);
 
   // Verify token on mount

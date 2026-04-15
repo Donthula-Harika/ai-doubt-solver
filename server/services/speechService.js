@@ -36,62 +36,36 @@
 
 // module.exports = { transcribeAudio, isSpeechServiceAvailable };
 
-
 const { AssemblyAI } = require('assemblyai');
-const path = require('path');
+const fs = require('fs');
 
-const client = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY });
+const client = new AssemblyAI({
+  apiKey: process.env.ASSEMBLYAI_API_KEY,
+});
 
 const transcribeAudio = async (audioFilePath) => {
   try {
-    const audioFilename = path.basename(audioFilePath);
-    const publicAudioUrl = `http://localhost:5000/uploads/audio/${audioFilename}`;
+    // ✅ Read file as buffer (IMPORTANT FIX)
+    const audioData = fs.readFileSync(audioFilePath);
 
-    console.log('🎙️ URL:', publicAudioUrl);
-
-    // 1. Submit transcription job
     const transcript = await client.transcripts.transcribe({
-      audio: publicAudioUrl,
-      speech_models: ['universal-3-pro'],
+      audio: audioData, // ✅ NO URL
       language_detection: true,
       punctuate: true,
       format_text: true,
     });
 
-    console.log('📤 Job ID:', transcript.id);
-
-    // 2. POLL until completed (new SDK method)
-    let status = transcript.status;
-    while (status !== 'completed' && status !== 'error') {
-      // Wait 2 seconds between polls
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Fetch latest status
-      const updatedTranscript = await client.transcripts.getTranscript(transcript.id);
-      status = updatedTranscript.status;
-      console.log('⏳ Status:', status);
-    }
-
-    // 3. Check for errors
-    if (status === 'error') {
-      throw new Error(`AssemblyAI Error: ${JSON.stringify(transcript.error)}`);
-    }
-
-    // 4. Return text
     if (!transcript.text?.trim()) {
       throw new Error('No speech detected');
     }
 
-    console.log('✅ SUCCESS:', `"${transcript.text.substring(0, 80)}..."`);
+    console.log('✅ Transcript:', transcript.text);
+
     return transcript.text;
   } catch (error) {
-    console.error('❌ FULL ERROR:', error.message);
+    console.error('❌ Error:', error.message);
     throw new Error(`Speech-to-text failed: ${error.message}`);
   }
 };
 
-const isSpeechServiceAvailable = () => {
-  return !!process.env.ASSEMBLYAI_API_KEY;
-};
-
-module.exports = { transcribeAudio, isSpeechServiceAvailable };
+module.exports = { transcribeAudio };
